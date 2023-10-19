@@ -36,6 +36,18 @@ extern "C" {
 #define ACO_VERSION_MINOR 2
 #define ACO_VERSION_PATCH 4
 
+/*
+ * +---+---+---+---+---+---+---+---+
+ * | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 |
+ * +---+---+---+---+---+---+---+---+
+ *  RET  SP  BP             FPU
+ *
+ * +-------+-------+-------+-------+-------+-------+-------+-------+-------+
+ * |   0   |   1   |   2   |   3   |   4   |   5   |   6   |   7   |   8   |
+ * +-------+-------+-------+-------+-------+-------+-------+-------+-------+
+ *                                    RET      SP              BP     FPU
+ */
+
 #ifdef __i386__
     #define ACO_REG_IDX_RETADDR 0
     #define ACO_REG_IDX_SP 1
@@ -66,12 +78,12 @@ struct aco_s;
 typedef struct aco_s aco_t;
 
 typedef struct {
-    void*  ptr;            
+    void*  ptr;
     size_t sz;
     void*  align_highptr;
-    void*  align_retptr;
+    void*  align_retptr; // return address
     size_t align_validsz;
-    size_t align_limit;
+    size_t align_limit; // ?
     aco_t* owner;
 
     char guard_page_enabled;
@@ -107,10 +119,13 @@ struct aco_s{
     char   is_end;
 
     aco_cofuncp_t fp;
-    
+
     aco_save_stack_t  save_stack;
     aco_share_stack_t* share_stack;
 };
+
+// https://gcc.gnu.org/onlinedocs/gcc/Other-Builtins.html
+// __builtin_expect
 
 #define aco_likely(x) (__builtin_expect(!!(x), 1))
 
@@ -161,6 +176,7 @@ extern void aco_thread_init(aco_cofuncp_t last_word_co_fp);
 
 extern void* acosw(aco_t* from_co, aco_t* to_co) __asm__("acosw"); // asm
 
+// Store x87 FPU control word and store the contents of the MXCSR control and status register
 extern void aco_save_fpucw_mxcsr(void* p) __asm__("aco_save_fpucw_mxcsr");  // asm
 
 extern void aco_funcp_protector_asm(void) __asm__("aco_funcp_protector_asm"); // asm

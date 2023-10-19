@@ -21,6 +21,7 @@
 // this header including should be at the last of the `include` directives list
 #include "aco_assert_override.h"
 
+// 进行一些检查
 void aco_runtime_test(void){
 #ifdef __i386__
     _Static_assert(sizeof(void*) == 4, "require 'sizeof(void*) == 4'");
@@ -36,6 +37,15 @@ void aco_runtime_test(void){
         "require 'sizeof(int) <= sizeof(size_t)'");
     assert(sizeof(int) <= sizeof(size_t));
 }
+
+// (((uintptr_t)(src) & 0x0f) == 0) 和 (((uintptr_t)(dst) & 0x0f) == 0)
+// 这两个条件检查 src 和 dst 地址的最低4位是否都为0，这表示这些地址是否16字节对齐。
+//
+// (((sz) & 0x0f) == 0x08)
+// 这个条件检查 sz 的最低4位是否等于0x08（十进制的8），这表示 sz 是否为 16*n + 8。
+//
+// (((sz) >> 4) >= 0) 和 (((sz) >> 4) <= 8)
+// 这两个条件检查右移 sz 4位后的结果是否大于等于0且小于等于8。
 
 // assertptr(dst); assertptr(src);
 // assert((((uintptr_t)(src) & 0x0f) == 0) && (((uintptr_t)(dst) & 0x0f) == 0));
@@ -156,6 +166,7 @@ void aco_runtime_test(void){
     } \
 } while(0)
 
+// 遗言
 static void aco_default_protector_last_word(void){
     aco_t* co = aco_get_co();
     // do some log about the offending `co`
@@ -177,6 +188,7 @@ static __thread aco_cofuncp_t aco_gtls_last_word_fp = aco_default_protector_last
     #error "platform no support yet"
 #endif
 
+// 初始化
 void aco_thread_init(aco_cofuncp_t last_word_co_fp){
     aco_save_fpucw_mxcsr(aco_gtls_fpucw_mxcsr);
 
@@ -207,6 +219,7 @@ aco_share_stack_t* aco_share_stack_new(size_t sz){
 
 aco_share_stack_t* aco_share_stack_new2(size_t sz, char guard_page_enabled){
     if(sz == 0){
+        // 2MB
         sz = 1024 * 1024 * 2;
     }
     if(sz < 4096){
@@ -216,6 +229,8 @@ aco_share_stack_t* aco_share_stack_new2(size_t sz, char guard_page_enabled){
 
     size_t u_pgsz = 0;
     if(guard_page_enabled != 0){
+        // https://man7.org/linux/man-pages/man3/sysconf.3.html
+        // https://gcc.gnu.org/onlinedocs/gcc/Integer-Overflow-Builtins.html
         // although gcc's Built-in Functions to Perform Arithmetic with
         // Overflow Checking is better, but it would require gcc >= 5.0
         long pgsz = sysconf(_SC_PAGESIZE);
@@ -244,16 +259,19 @@ aco_share_stack_t* aco_share_stack_new2(size_t sz, char guard_page_enabled){
         }
     }
 
+    // calloc
     aco_share_stack_t* p = (aco_share_stack_t*)malloc(sizeof(aco_share_stack_t));
     assertalloc_ptr(p);
     memset(p, 0, sizeof(aco_share_stack_t));
 
     if(guard_page_enabled != 0){
+        // https://man7.org/linux/man-pages/man2/mmap.2.html
         p->real_ptr = mmap(
             NULL, sz, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0
         );
         assertalloc_bool(p->real_ptr != MAP_FAILED);
         p->guard_page_enabled = 1;
+        // https://man7.org/linux/man-pages/man2/mprotect.2.html
         assert(0 == mprotect(p->real_ptr, u_pgsz, PROT_READ));
 
         p->ptr = (void*)(((uintptr_t)p->real_ptr) + u_pgsz);
@@ -269,11 +287,14 @@ aco_share_stack_t* aco_share_stack_new2(size_t sz, char guard_page_enabled){
 
     p->owner = NULL;
 #ifdef ACO_USE_VALGRIND
+    // https://valgrind.org/docs/manual/manual-core-adv.html
     p->valgrind_stk_id = VALGRIND_STACK_REGISTER(
         p->ptr, (void*)((uintptr_t)p->ptr + p->sz)
     );
 #endif
 #if defined(__i386__) || defined(__x86_64__)
+    // The end of the input argument area shall be aligned on a 16 (32 or 64, if __m256 or __m512 is
+    // passed on stack) byte boundary.
     uintptr_t u_p = (uintptr_t)(p->sz - (sizeof(void*) << 1) + (uintptr_t)p->ptr);
     u_p = (u_p >> 4) << 4;
     p->align_highptr = (void*)u_p;
@@ -308,6 +329,7 @@ aco_t* aco_create(
         size_t save_stack_sz, aco_cofuncp_t fp, void* arg
     ){
 
+    // calloc
     aco_t* p = (aco_t*)malloc(sizeof(aco_t));
     assertalloc_ptr(p);
     memset(p, 0, sizeof(aco_t));
