@@ -90,6 +90,16 @@ acosw:
     0   8   10  18  20  28  30  38  40      44
 */
     // rdi - from_co | rsi - to_co
+    /* Decrements the stack pointer and then stores the source operand on the top of the stack.
+     *
+     * +----------------+ <- previous rsp
+     * | return address | -> the instruction after `call acosw`
+     * +----------------+ <- rsp
+     * |                |
+     * |     ......     |
+     * |                |
+     * +----------------+
+     */
     mov     rdx,QWORD PTR [rsp]      // retaddr
     lea     rcx,[rsp+0x8]            // rsp
     mov     QWORD PTR [rdi+0x0], r12
@@ -108,6 +118,18 @@ acosw:
     mov     r13,QWORD PTR [rsi+0x8]
     mov     r14,QWORD PTR [rsi+0x10]
     mov     r15,QWORD PTR [rsi+0x18]
+    /* First switch to non-main co.
+     *
+     * fp   <-   retaddr
+     *
+     * +-----------+
+     * | protector |
+     * +-----------+ <- rsp
+     * |           |
+     * |  ......   |
+     * |           |
+     * +-----------+
+     */
     mov     rax,QWORD PTR [rsi+0x20] // retaddr
     mov     rcx,QWORD PTR [rsi+0x28] // rsp
     mov     rbx,QWORD PTR [rsi+0x30]
@@ -173,6 +195,7 @@ aco_funcp_protector_asm:
     #endif
             ret
 #elif __x86_64__
+            // align to 16 bytes
             and     rsp,0xfffffffffffffff0
     #if defined(__APPLE__)
             call    _aco_funcp_protector
