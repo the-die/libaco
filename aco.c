@@ -15,6 +15,7 @@
 #define _GNU_SOURCE
 
 #include "aco.h"
+
 #include <stdio.h>
 #include <stdint.h>
 
@@ -23,6 +24,7 @@
 
 // 进行一些检查
 void aco_runtime_test(void){
+// https://en.cppreference.com/w/c/language/_Static_assert
 #ifdef __i386__
     _Static_assert(sizeof(void*) == 4, "require 'sizeof(void*) == 4'");
 #elif  __x86_64__
@@ -59,6 +61,8 @@ void aco_runtime_test(void){
         &&  \
         (((sz) & 0x0f) == 0x08) && (((sz) >> 4) >= 0) && (((sz) >> 4) <= 8) \
     )
+
+//  Intel Streaming SIMD Extensions (Intel SSE)
 
 #define aco_amd64_inline_short_aligned_memcpy(dst, src, sz) do {\
     __uint128_t xmm0,xmm1,xmm2,xmm3,xmm4,xmm5,xmm6,xmm7; \
@@ -201,17 +205,21 @@ void aco_thread_init(aco_cofuncp_t last_word_co_fp){
 // `co` didn't call aco_exit(co) instead of `return` to
 // finish its execution.
 void aco_funcp_protector(void){
-    if((void*)(aco_gtls_last_word_fp) != NULL){
-        aco_gtls_last_word_fp();
-    }else{
-        aco_default_protector_last_word();
-    }
+    // if((void*)(aco_gtls_last_word_fp) != NULL){
+    //     aco_gtls_last_word_fp();
+    // }else{
+    //     aco_default_protector_last_word();
+    // }
+    assert((void*)aco_gtls_last_word_fp != NULL);
+    aco_gtls_last_word_fp();
     assert(0);
 }
 
 aco_share_stack_t* aco_share_stack_new(size_t sz){
     return aco_share_stack_new2(sz, 1);
 }
+
+// https://gcc.gnu.org/onlinedocs/gcc/Integer-Overflow-Builtins.html
 
 #define aco_size_t_safe_add_assert(a,b) do {   \
     assert((a)+(b) >= (a)); \
@@ -372,11 +380,11 @@ aco_t* aco_create(
 #endif
         return p;
     } else { // main co
-        p->main_co = NULL;
-        p->arg = arg;
-        p->fp = fp;
-        p->share_stack = NULL;
-        p->save_stack.ptr = NULL;
+        // p->main_co = NULL;
+        // p->arg = arg;
+        // p->fp = fp;
+        // p->share_stack = NULL;
+        // p->save_stack.ptr = NULL;
         return p;
     }
     assert(0);
